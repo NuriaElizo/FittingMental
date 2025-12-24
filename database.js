@@ -3,23 +3,25 @@
  * Envío de datos del Fitting Mental a Google Sheets
  ***************************************************/
 
-// 1️⃣ Pega aquí la URL del Web App de Google Apps Script
+console.log("database.js cargado");
+
+// URL del Web App de Google Apps Script
 const DATABASE_API_URL = "https://script.google.com/macros/s/AKfycbzhH641nGxukXdfITEHT3AcDzAX6WMrZQu0m6_C9UJmZJnfgYSoaIkIK-LDyfNAsByUmA/exec";
 
-// 2️⃣ Objeto donde se guardan las respuestas
+// Respuestas del fitting
 const respuestas = {};
 
-// 3️⃣ Captura de clicks en las caritas
+// Captura de clicks en caritas
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-question][data-value]");
   if (!btn) return;
 
-  const question = btn.dataset.question; // q1, q2, ...
-  const value = Number(btn.dataset.value); // 0–3
+  const question = btn.dataset.question;
+  const value = Number(btn.dataset.value);
 
   respuestas[question] = value;
 
-  // Feedback visual (opcional)
+  // Feedback visual opcional
   btn.parentElement
     .querySelectorAll("[data-value]")
     .forEach(b => b.classList.remove("selected"));
@@ -27,18 +29,18 @@ document.addEventListener("click", (e) => {
   btn.classList.add("selected");
 });
 
-// 4️⃣ Envío del fitting completo
+// Envío del fitting
 function enviarFittingMental() {
+  console.log("Botón enviar pulsado");
 
-  // Comprobación mínima: todas las preguntas respondidas
+  // Comprobación mínima
   for (let i = 1; i <= 21; i++) {
     if (respuestas[`q${i}`] === undefined) {
-      alert("Por favor, responde todas las preguntas.");
+      alert("Faltan preguntas por responder");
       return;
     }
   }
 
-  // Payload que viaja a Google Sheets
   const payload = {
     alumno_id: crypto.randomUUID(),
     email: document.getElementById("email")?.value || "",
@@ -48,7 +50,8 @@ function enviarFittingMental() {
     ...respuestas
   };
 
-  // Envío
+  console.log("Enviando payload:", payload);
+
   fetch(DATABASE_API_URL, {
     method: "POST",
     headers: {
@@ -57,10 +60,12 @@ function enviarFittingMental() {
     body: JSON.stringify(payload)
   })
     .then(res => res.json())
-    .then(() => {
-      alert("Fitting mental enviado correctamente");
+    .then(data => {
+      console.log("Respuesta servidor:", data);
+      alert("Fitting enviado correctamente");
     })
-    .catch(() => {
+    .catch(err => {
+      console.error("Error en envío:", err);
       alert("Error al enviar el fitting");
     });
 }
