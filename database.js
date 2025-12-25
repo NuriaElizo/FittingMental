@@ -9,32 +9,37 @@ console.log("database.js cargado");
 const DATABASE_API_URL =
   "https://script.google.com/macros/s/AKfycbzhH641nGxukXdfITEHT3AcDzAX6WMrZQu0m6_C9UJmZJnfgYSoaIkIK-LDyfNAsByUmA/exec";
 
-// Respuestas del fitting (q1 → q21)
+// Objeto donde se guardan las respuestas
 const respuestas = {};
 
-// Captura de clicks en caritas
+// ===============================
+// CAPTURA DE CLICKS EN CARITAS
+// ===============================
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-question][data-value]");
   if (!btn) return;
 
-  const question = btn.dataset.question; // ej: q1
-  const value = Number(btn.dataset.value); // 0–3
+  const question = btn.dataset.question; // ej: "q1"
+  const value = Number(btn.dataset.value); // 0,1,2,3
 
   respuestas[question] = value;
 
-  // Feedback visual
-  btn.parentElement
-    .querySelectorAll("[data-value]")
-    .forEach(b => b.classList.remove("selected"));
-
+  // Feedback visual (opcional)
+  const siblings = btn.parentElement.querySelectorAll("[data-value]");
+  siblings.forEach(b => b.classList.remove("selected"));
   btn.classList.add("selected");
+
+  console.log("Respuesta guardada:", question, value);
+  console.log("Estado actual respuestas:", respuestas);
 });
 
-// Envío del fitting
+// ===============================
+// ENVÍO DEL FITTING
+// ===============================
 function enviarFittingMental() {
   console.log("Botón enviar pulsado");
 
-  // Validación: todas las preguntas respondidas
+  // 1. Validación: comprobar q1 → q21
   for (let i = 1; i <= 21; i++) {
     if (respuestas[`q${i}`] === undefined) {
       alert("Faltan preguntas por responder");
@@ -42,23 +47,25 @@ function enviarFittingMental() {
     }
   }
 
+  // 2. Construir payload
   const payload = {
     timestamp: new Date().toISOString(),
     alumno_id: crypto.randomUUID(),
+
     email: document.getElementById("email")?.value || "",
     nombre: document.getElementById("nombre")?.value || "",
     handicap: document.getElementById("handicap")?.value || "",
     frecuencia_juego: document.getElementById("frecuencia")?.value || "",
+
     ...respuestas
   };
 
-  console.log("Enviando payload:", payload);
+  console.log("Payload final:", payload);
 
+  // 3. Envío a Google Apps Script (SIN CORS)
   fetch(DATABASE_API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    mode: "no-cors",
     body: JSON.stringify(payload)
   });
 
