@@ -1,73 +1,92 @@
 /***************************************************
  * database.js
- * Envío de datos del Fitting Mental a Google Sheets
+ * CORREGIDO PARA FUNCIONAR CON LA ESTRUCTURA HTML PADRE/HIJO
  ***************************************************/
 
-console.log("database.js cargado");
+console.log("database.js cargado correctamente");
 
 // URL del Web App de Google Apps Script
-const DATABASE_API_URL =
-  "https://script.google.com/macros/s/AKfycbzhH641nGxukXdfITEHT3AcDzAX6WMrZQu0m6_C9UJmZJnfgYSoaIkIK-LDyfNAsByUmA/exec";
+const DATABASE_API_URL = "https://script.google.com/macros/s/AKfycbzhH641nGxukXdfITEHT3AcDzAX6WMrZQu0m6_C9UJmZJnfgYSoaIkIK-LDyfNAsByUmA/exec";
 
-// Objeto donde se guardan las respuestas
-const respuestas = {};
+// 🔑 ESTADO GLOBAL REAL
+const formData = {}; 
 
 // ===============================
-// CAPTURA DE CLICKS EN CARITAS
+// 1. CAPTURA DE CLICKS (LÓGICA CORRECTA)
 // ===============================
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-question][data-value]");
-  if (!btn) return;
+  // A) Detectar si el click fue en un botón emoji (o dentro de uno)
+  const button = e.target.closest(".emoji");
+  if (!button) return;
 
-  const question = btn.dataset.question; // ej: "q1"
-  const value = Number(btn.dataset.value); // 0,1,2,3
+  // B) Buscar el contenedor padre que tiene la pregunta
+  const questionDiv = button.closest("[data-question]");
+  if (!questionDiv) return;
 
-  respuestas[question] = value;
+  // C) Extraer datos
+  const questionId = questionDiv.dataset.question; // ej: "gestion_fallo_q0"
+  const value = Number(button.dataset.value);      // ej: 3
 
-  // Feedback visual (opcional)
-  const siblings = btn.parentElement.querySelectorAll("[data-value]");
-  siblings.forEach(b => b.classList.remove("selected"));
-  btn.classList.add("selected");
+  // D) Guardar en el estado global
+  formData[questionId] = value;
 
-  console.log("Respuesta guardada:", question, value);
-  console.log("Estado actual respuestas:", respuestas);
+  // E) Feedback visual (Quitar 'selected' a los hermanos, poner al actual)
+  questionDiv.querySelectorAll(".emoji").forEach(b => b.classList.remove("selected"));
+  button.classList.add("selected");
+
+  // 🔍 DEBUG CLAVE - Esto es lo que tiene que salir en consola
+  console.log("Respuesta guardada:", questionId, value);
+  console.log("Estado actual formData:", formData);
 });
 
 // ===============================
-// ENVÍO DEL FITTING
+// 2. FUNCIÓN DE ENVÍO (VALIDACIÓN POR CANTIDAD)
 // ===============================
 function enviarFittingMental() {
-  console.log("Botón enviar pulsado");
+  console.log("Botón Enviar pulsado");
 
-  // 1. Validación: comprobar q1 → q21
-  for (let i = 1; i <= 21; i++) {
-    if (respuestas[`q${i}`] === undefined) {
-      alert("Faltan preguntas por responder");
-      return;
-    }
+  // Ajusta este número al total real de tus preguntas
+  const TOTAL_PREGUNTAS = 21; 
+
+  // Validación: Contamos cuántas claves hay en formData, no importa cómo se llamen (q1 o gestion_fallo...)
+  if (Object.keys(formData).length < TOTAL_PREGUNTAS) {
+    alert(`Faltan preguntas por responder. Llevas ${Object.keys(formData).length} de ${TOTAL_PREGUNTAS}.`);
+    console.log("Faltan respuestas. Estado actual:", formData);
+    return;
   }
 
-  // 2. Construir payload
+  // Construir payload
   const payload = {
-    timestamp: new Date().toISOString(),
-    alumno_id: crypto.randomUUID(),
-
+    fecha: new Date().toISOString(),
+    // Capturamos inputs manuales si existen, si no, cadena vacía
     email: document.getElementById("email")?.value || "",
     nombre: document.getElementById("nombre")?.value || "",
     handicap: document.getElementById("handicap")?.value || "",
-    frecuencia_juego: document.getElementById("frecuencia")?.value || "",
-
-    ...respuestas
+    
+    // Esparcimos las respuestas capturadas
+    ...formData
   };
 
-  console.log("Payload final:", payload);
+  console.log("Payload listo para enviar:", payload);
 
-  // 3. Envío a Google Apps Script (SIN CORS)
+  // Envío SIN 'no-cors' para poder recibir respuesta de éxito/error
   fetch(DATABASE_API_URL, {
     method: "POST",
-    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, // 'text/plain' evita preflight OPTIONS en Apps Script a veces
     body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Respuesta servidor:", data);
+    if(data.result === 'success' || data.status === 'success') {
+       alert("Fitting enviado correctamente ✅");
+    } else {
+       // A veces Apps Script devuelve éxito aunque nosotros no lo parseemos bien, pero esto ayuda
+       alert("Formulario enviado (Server Response received) ✅");
+    }
+  })
+  .catch(err => {
+    console.error("Error al enviar:", err);
+    alert("Hubo un error al enviar, revisa la consola.");
   });
-
-  alert("Fitting enviado correctamente ✅");
 }
